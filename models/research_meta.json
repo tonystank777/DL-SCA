@@ -1,0 +1,30 @@
+{
+  "tag": "research",
+  "features": [
+    "Cache References",
+    "Cache Misses",
+    "Offcore Response Demand Data Read LLC Miss DRAM",
+    "Offcore Response Demand Data Read LLC Hit Any Response",
+    "L1 DCache Loads",
+    "L1 DCache Load Misses",
+    "Branch Instructions",
+    "Branch Misses",
+    "Branch Instruction Executed All Branches",
+    "Branch Instruction Retired All Branches",
+    "Branch Instruction Executed All Conditional",
+    "Branch Instruction Retired Conditional"
+  ],
+  "use_log": true,
+  "threshold": 0.5,
+  "class_counts": {
+    "NORMAL": 162602,
+    "SUSPICIOUS": 75591
+  },
+  "split_sizes": {
+    "train": 129194,
+    "val": 48038,
+    "test": 60961
+  },
+  "dataset": "IEEE DataPort Microarchitectural Attack Detection Dataset",
+  "device": "Intel_PC_1"
+}

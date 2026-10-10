@@ -1,0 +1,8 @@
+__pycache__/
+*.pyc
+.venv/
+.vscode/
+# big raw dataset is NOT uploaded to GitHub (download it yourself, see README)
+data/raw/*
+!data/raw/.gitkeep
+# NOTE: models/ and data/processed/ are committed on purpose (Streamlit Cloud needs the trained model)

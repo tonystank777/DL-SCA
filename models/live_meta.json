@@ -1,0 +1,66 @@
+{
+  "tag": "live",
+  "features": [
+    "cpu_percent",
+    "mem_percent",
+    "disk_read_mb_s",
+    "disk_write_mb_s",
+    "net_sent_kb_s",
+    "net_recv_kb_s",
+    "process_count"
+  ],
+  "use_log": false,
+  "threshold": 0.5,
+  "class_counts": {
+    "NORMAL": 120,
+    "SUSPICIOUS": 120
+  },
+  "split_sizes": {
+    "train": 135,
+    "val": 45,
+    "test": 60
+  },
+  "data": "locally recorded OS metrics; label 1 = SAFE SIMULATED workload",
+  "stats": {
+    "0": {
+      "mean": {
+        "cpu_percent": 4.413333333333333,
+        "mem_percent": 79.4933333333334,
+        "disk_read_mb_s": 0.020354059301175016,
+        "disk_write_mb_s": 0.4117869429031003,
+        "net_sent_kb_s": 1.8178017542580238,
+        "net_recv_kb_s": 99.06144612206366,
+        "process_count": 215.41666666666666
+      },
+      "std": {
+        "cpu_percent": 2.6179805618495764,
+        "mem_percent": 0.248908729367928,
+        "disk_read_mb_s": 0.05293504921163801,
+        "disk_write_mb_s": 0.7227191737770473,
+        "net_sent_kb_s": 2.5949211179692444,
+        "net_recv_kb_s": 133.32395311351536,
+        "process_count": 0.8224286527650219
+      }
+    },
+    "1": {
+      "mean": {
+        "cpu_percent": 51.82266666666669,
+        "mem_percent": 83.29199999999997,
+        "disk_read_mb_s": 0.3925098274435895,
+        "disk_write_mb_s": 0.545315226667666,
+        "net_sent_kb_s": 0.6789675120942246,
+        "net_recv_kb_s": 4.737670214143597,
+        "process_count": 220.0
+      },
+      "std": {
+        "cpu_percent": 5.973286606960099,
+        "mem_percent": 0.1860179202836814,
+        "disk_read_mb_s": 2.3468500352979014,
+        "disk_write_mb_s": 3.015022357226075,
+        "net_sent_kb_s": 2.1053927495857483,
+        "net_recv_kb_s": 5.034352502782556,
+        "process_count": 0.0
+      }
+    }
+  }
+}

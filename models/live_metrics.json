@@ -1,0 +1,18 @@
+{
+  "accuracy": 1.0,
+  "precision": 1.0,
+  "recall": 1.0,
+  "f1": 1.0,
+  "confusion_matrix": [
+    [
+      45,
+      0
+    ],
+    [
+      0,
+      15
+    ]
+  ],
+  "n_test": 60,
+  "threshold": 0.5
+}
