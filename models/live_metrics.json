@@ -5,14 +5,14 @@
   "f1": 1.0,
   "confusion_matrix": [
     [
-      45,
+      120,
       0
     ],
     [
       0,
-      15
+      120
     ]
   ],
-  "n_test": 60,
+  "n_test": 240,
   "threshold": 0.5
 }
