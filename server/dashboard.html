@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DL-SCA — Client Monitoring (Render)</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script>
+<style>
+  :root{
+    --bg:#0f1117; --panel:#171a23; --panel2:#1e2230; --border:#2a2f3f;
+    --text:#e8eaf0; --muted:#9aa2b1; --accent:#5b8cff; --green:#39d98a; --red:#ff5c6c; --amber:#ffb454;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;}
+  header{padding:20px 24px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;}
+  h1{font-size:18px;margin:0;}
+  h1 span{color:var(--muted);font-weight:400;}
+  main{padding:20px 24px;max-width:1200px;margin:0 auto;}
+  .row{display:flex;gap:16px;flex-wrap:wrap;align-items:center;margin-bottom:16px;}
+  select,button,input{background:var(--panel2);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:8px 12px;font-size:14px;}
+  button{cursor:pointer;}
+  button.primary{background:var(--accent);border-color:var(--accent);color:#fff;}
+  button.danger{background:var(--red);border-color:var(--red);color:#fff;}
+  button:disabled{opacity:.5;cursor:not-allowed;}
+  .badge{padding:3px 10px;border-radius:999px;font-size:12px;font-weight:600;}
+  .badge.on{background:rgba(57,217,138,.15);color:var(--green);}
+  .badge.off{background:rgba(255,92,108,.15);color:var(--red);}
+  .badge.warn{background:rgba(255,180,84,.15);color:var(--amber);}
+  .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin-bottom:20px;}
+  .card{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:14px 16px;}
+  .card .label{color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.04em;}
+  .card .value{font-size:24px;font-weight:700;margin-top:4px;}
+  .status-banner{padding:14px 16px;border-radius:12px;margin-bottom:20px;font-weight:600;}
+  .status-banner.normal{background:rgba(57,217,138,.1);color:var(--green);border:1px solid rgba(57,217,138,.3);}
+  .status-banner.suspicious{background:rgba(255,92,108,.1);color:var(--red);border:1px solid rgba(255,92,108,.3);}
+  .status-banner.neutral{background:var(--panel);color:var(--muted);border:1px solid var(--border);}
+  .charts{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px;}
+  .chart-box{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:14px;}
+  .chart-box .ttl{color:var(--muted);font-size:12px;margin-bottom:8px;}
+  canvas{max-height:180px;}
+  table{width:100%;border-collapse:collapse;font-size:13px;}
+  th,td{padding:7px 10px;border-bottom:1px solid var(--border);text-align:left;}
+  th{color:var(--muted);font-weight:600;}
+  .hist-box{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:14px;max-height:320px;overflow:auto;}
+  footer{color:var(--muted);font-size:12px;padding:20px 24px;text-align:center;}
+  a{color:var(--accent);}
+  code{background:var(--panel2);padding:1px 6px;border-radius:4px;}
+</style>
+</head>
+<body>
+<header>
+  <h1>🛡️ DL-SCA <span>— Client-Side Monitoring (hosted on Render)</span></h1>
+  <div class="row" style="margin:0;">
+    <select id="clientSelect"><option>Loading clients…</option></select>
+    <span id="onlineBadge" class="badge off">no agent connected</span>
+  </div>
+</header>
+
+<main>
+  <div class="row">
+    <button id="startWorkload" class="primary">▶ Start SAFE workload (client)</button>
+    <button id="stopWorkload" class="danger">■ Stop workload</button>
+    <a href="#" id="downloadCsv">⬇ Download history (CSV)</a>
+    <span id="detectorBadge" class="badge warn">checking model…</span>
+  </div>
+
+  <div id="statusBanner" class="status-banner neutral">
+    Waiting for data. Run <code>python -m src.client_agent --server-url &lt;this-url&gt;</code> on the machine you want monitored.
+  </div>
+
+  <div class="cards">
+    <div class="card"><div class="label">CPU usage</div><div class="value" id="cCpu">—</div></div>
+    <div class="card"><div class="label">Memory usage</div><div class="value" id="cMem">—</div></div>
+    <div class="card"><div class="label">Network</div><div class="value" id="cNet">—</div></div>
+    <div class="card"><div class="label">Disk</div><div class="value" id="cDisk">—</div></div>
+    <div class="card"><div class="label">Suspicious probability</div><div class="value" id="cProb">—</div></div>
+  </div>
+
+  <div class="charts">
+    <div class="chart-box"><div class="ttl">CPU usage (%)</div><canvas id="chartCpu"></canvas></div>
+    <div class="chart-box"><div class="ttl">Memory usage (%)</div><canvas id="chartMem"></canvas></div>
+    <div class="chart-box"><div class="ttl">Network activity (KB/s)</div><canvas id="chartNet"></canvas></div>
+    <div class="chart-box"><div class="ttl">Suspicious probability</div><canvas id="chartProb"></canvas></div>
+  </div>
+
+  <div class="hist-box">
+    <table>
+      <thead><tr><th>Time</th><th>CPU%</th><th>Mem%</th><th>Net KB/s</th><th>Prediction</th><th>P(suspicious)</th></tr></thead>
+      <tbody id="histBody"><tr><td colspan="6">No rows yet.</td></tr></tbody>
+    </table>
+  </div>
+</main>
+
+<footer>
+  All numbers above are real OS-level metrics (psutil) read on the AGENT's own machine and posted to this server —
+  nothing here reads the Render server's own CPU/memory. See the project README for architecture details.
+</footer>
+
+<script>
+const $ = (id) => document.getElementById(id);
+let currentClient = null;
+let charts = {};
+
+function mkChart(ctx, label, color) {
+  return new Chart(ctx, {
+    type: 'line',
+    data: { labels: [], datasets: [{ label, data: [], borderColor: color, backgroundColor: color + '33',
+      tension: .3, pointRadius: 0, borderWidth: 2 }] },
+    options: { animation: false, responsive: true,
+      scales: { x: { display: false }, y: { beginAtZero: true, grid: { color: '#2a2f3f' }, ticks: { color: '#9aa2b1' } } },
+      plugins: { legend: { display: false } } }
+  });
+}
+
+function initCharts() {
+  charts.cpu = mkChart($('chartCpu'), 'CPU %', '#5b8cff');
+  charts.mem = mkChart($('chartMem'), 'Mem %', '#39d98a');
+  charts.net = mkChart($('chartNet'), 'Net KB/s', '#ffb454');
+  charts.prob = mkChart($('chartProb'), 'P(suspicious)', '#ff5c6c');
+}
+
+function pushChart(c, label, value) {
+  const d = c.data;
+  d.labels.push(label);
+  d.datasets[0].data.push(value);
+  if (d.labels.length > 60) { d.labels.shift(); d.datasets[0].data.shift(); }
+  c.update('none');
+}
+
+async function refreshClients() {
+  const res = await fetch('/api/clients');
+  const clients = await res.json();
+  const sel = $('clientSelect');
+  const prev = currentClient;
+  sel.innerHTML = '';
+  if (clients.length === 0) {
+    sel.innerHTML = '<option>No agents connected yet</option>';
+    return;
+  }
+  clients.forEach(c => {
+    const opt = document.createElement('option');
+    opt.value = c.client_id;
+    opt.textContent = `${c.client_id} ${c.online ? '🟢' : '⚪'} (${c.rows} rows)`;
+    sel.appendChild(opt);
+  });
+  currentClient = prev && clients.some(c => c.client_id === prev) ? prev : clients[0].client_id;
+  sel.value = currentClient;
+}
+
+async function refreshLatest() {
+  if (!currentClient) { await refreshClients(); if (!currentClient) return; }
+  const res = await fetch(`/api/latest?client_id=${encodeURIComponent(currentClient)}&n=200`);
+  if (!res.ok) return;
+  const data = await res.json();
+  $('downloadCsv').href = `/api/export/${encodeURIComponent(currentClient)}`;
+
+  $('detectorBadge').textContent = data.detector_loaded ? 'model loaded' : 'model not loaded';
+  $('detectorBadge').className = 'badge ' + (data.detector_loaded ? 'on' : 'warn');
+
+  $('onlineBadge').textContent = data.online ? 'agent online' : 'agent offline';
+  $('onlineBadge').className = 'badge ' + (data.online ? 'on' : 'off');
+
+  const rows = data.rows || [];
+  if (rows.length === 0) return;
+  const last = rows[rows.length - 1];
+  const net = (last.net_sent_kb_s || 0) + (last.net_recv_kb_s || 0);
+  const disk = (last.disk_read_mb_s || 0) + (last.disk_write_mb_s || 0);
+
+  $('cCpu').textContent = last.cpu_percent.toFixed(1) + '%';
+  $('cMem').textContent = last.mem_percent.toFixed(1) + '%';
+  $('cNet').textContent = net.toFixed(1) + ' KB/s';
+  $('cDisk').textContent = disk.toFixed(2) + ' MB/s';
+  $('cProb').textContent = last.probability != null ? last.probability.toFixed(2) : '—';
+
+  const banner = $('statusBanner');
+  if (last.prediction === 'SUSPICIOUS') {
+    banner.className = 'status-banner suspicious';
+    banner.textContent = `🔴 SUSPICIOUS BEHAVIOR DETECTED on ${currentClient} — probability ${last.probability.toFixed(2)}`;
+  } else if (last.prediction === 'NORMAL') {
+    banner.className = 'status-banner normal';
+    banner.textContent = `🟢 NORMAL BEHAVIOR — probability ${last.probability.toFixed(2)}`;
+  } else {
+    banner.className = 'status-banner neutral';
+    banner.textContent = `Receiving data, but: ${last.prediction || 'no prediction yet'}`;
+  }
+
+  pushChart(charts.cpu, last.timestamp, last.cpu_percent);
+  pushChart(charts.mem, last.timestamp, last.mem_percent);
+  pushChart(charts.net, last.timestamp, net);
+  pushChart(charts.prob, last.timestamp, last.probability || 0);
+
+  const body = $('histBody');
+  body.innerHTML = '';
+  rows.slice().reverse().slice(0, 50).forEach(r => {
+    const tr = document.createElement('tr');
+    const n = (r.net_sent_kb_s || 0) + (r.net_recv_kb_s || 0);
+    tr.innerHTML = `<td>${r.timestamp}</td><td>${r.cpu_percent.toFixed(1)}</td><td>${r.mem_percent.toFixed(1)}</td>
+      <td>${n.toFixed(1)}</td><td>${r.prediction ?? '—'}</td><td>${r.probability != null ? r.probability.toFixed(2) : '—'}</td>`;
+    body.appendChild(tr);
+  });
+}
+
+$('startWorkload').addEventListener('click', async () => {
+  if (!currentClient) return;
+  await fetch(`/api/command/${encodeURIComponent(currentClient)}`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ workload: 'start', duration: 60 })
+  });
+});
+$('stopWorkload').addEventListener('click', async () => {
+  if (!currentClient) return;
+  await fetch(`/api/command/${encodeURIComponent(currentClient)}`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ workload: 'stop', duration: 0 })
+  });
+});
+$('clientSelect').addEventListener('change', (e) => { currentClient = e.target.value; });
+
+initCharts();
+refreshClients();
+setInterval(refreshClients, 5000);
+setInterval(refreshLatest, 2000);
+refreshLatest();
+</script>
+</body>
+</html>
