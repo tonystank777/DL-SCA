@@ -82,6 +82,60 @@ If research training says too few features/rows, read the printed coverage table
 2. Local mode → Start → "Start workload": CPU rises and probability should climb; Stop workload: back to green.
 3. Legitimate heavy apps (games, video export) may cause **false positives** — the live model only knows CPU/memory pressure.
 
+## 15a. Render deployment — real CLIENT-side workload test
+
+**Why this needed a new piece:** a web host's Python process (Render, Streamlit Cloud,
+anywhere) can only see *its own container's* CPU/RAM. It cannot read a website visitor's
+laptop. So "Local Monitoring" in `app.py` only ever worked when you ran Streamlit
+*on your own PC*. To really run the SAFE SIMULATED SUSPICIOUS WORKLOAD on the **client's**
+machine while the dashboard lives on Render, this project now ships two extra pieces:
+
+| Piece | Runs where | What it does |
+|---|---|---|
+| `server/api.py` (FastAPI) | **Render** | Receives metrics, runs the trained live model on them, serves the browser dashboard at `/` |
+| `src/client_agent.py` | **the client's own machine** | Reads REAL psutil metrics (reusing `LocalCollector`) and the SAFE workload generator (reusing `workload_generator`), POSTs readings to Render, and starts/stops the workload locally when told to from the dashboard |
+
+The browser dashboard never runs the workload itself — it only sends a "start/stop"
+command that the agent, running on the target machine, acts on. Every number shown is
+labelled `"CLIENT (real OS metrics, via agent)"`, same honesty convention as the rest
+of this project.
+
+### Deploy the server to Render
+1. Push this repo to GitHub (including `render.yaml`).
+2. Render dashboard → **New → Blueprint** → pick the repo → Render reads `render.yaml`
+   and creates a Python web service with:
+   - Build: `pip install -r requirements.txt`
+   - Start: `uvicorn server.api:app --host 0.0.0.0 --port $PORT`
+   - Health check: `/healthz`
+   - An auto-generated `AGENT_TOKEN` env var (open it in the Render dashboard and copy
+     the value — the agent needs it so random internet visitors can't post fake data).
+3. For real ML predictions, `models/live_model.keras` + `live_scaler.pkl` + `live_meta.json`
+   must be committed (train them first, see §13). Without them the server still runs and
+   shows live CPU/memory/network charts, just with `"model not loaded"` instead of a
+   prediction — it doesn't crash.
+4. **Memory note:** TensorFlow is heavy; Render's free tier (512 MB) can OOM. If that
+   happens, upgrade the instance type or skip the model (metrics-only mode still works).
+
+### Run the agent on the client machine
+```bash
+pip install -r requirements.txt     # needs psutil + requests at minimum
+python -m src.client_agent --server-url https://<your-app>.onrender.com --token <AGENT_TOKEN> --client-id my-laptop
+```
+Leave it running. Open `https://<your-app>.onrender.com/` in a browser, pick `my-laptop`
+from the dropdown, and press **Start SAFE workload** — CPU/memory will climb on *that*
+machine (not Render's server) and the probability chart will react, same as the old
+Local Monitoring mode, just now visible from anywhere.
+
+### API reference (server/api.py)
+- `POST /api/ingest` — agent → server, one reading (needs `X-Agent-Token` header if `AGENT_TOKEN` is set)
+- `GET /api/command/{client_id}` / `POST .../ack` — agent polls for start/stop requests
+- `POST /api/command/{client_id}` — dashboard → server, `{"workload":"start","duration":60}`
+- `GET /api/clients`, `GET /api/latest?client_id=...`, `GET /api/export/{client_id}` — dashboard reads
+
+### What did NOT change
+`app.py` (Streamlit) and everything in §11–§16 below is untouched — it still works
+exactly as before for local use or Streamlit Cloud's Demo mode.
+
 ## 15. GitHub + Streamlit Cloud
 ```powershell
 git init; git add .; git commit -m "DL-SCA"

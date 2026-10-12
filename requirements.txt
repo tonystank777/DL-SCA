@@ -5,3 +5,9 @@ scikit-learn
 tensorflow>=2.16
 psutil
 matplotlib
+
+# --- Render deployment: client-side monitoring server + agent ---
+fastapi>=0.111
+uvicorn[standard]>=0.30
+pydantic>=2.0
+requests
